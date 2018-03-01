@@ -1,0 +1,178 @@
+# Copyright (c) 2017 Sony Corporation. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import absolute_import
+from six.moves import range
+
+import os
+import sys
+import glob
+import cv2
+from PIL import Image
+from PIL import PngImagePlugin
+
+import numpy as np
+
+import nnabla as nn
+import nnabla.logger as logger
+import nnabla.functions as F
+import nnabla.parametric_functions as PF
+import nnabla.solvers as S
+import nnabla.utils.save as save
+
+from args import get_args
+#from mnist_data import data_iterator_mnist
+
+import os
+
+import iterator
+
+BN56 = False
+BN56_DISDROP = False
+BN56_DISDROP_NORANDOM = True
+
+if BN56:
+    from dcgan_kanji_3step_unlink_fin_bn56 import *
+
+if BN56_DISDROP:
+    from dcgan_kanji_3step_unlink_fin_bn56_disdrop import *
+if BN56_DISDROP_NORANDOM:
+    from dcgan_kanji_3step_unlink_fin_bn56_disdrop_norandom import *
+
+
+
+GEN_NET_NAME = "./3step_bn56_disdrop/generator_param_036000.h5"
+VEC_NET_NAME = "./3step_bn56_disdrop/vectorizer_param_036000.h5"
+GEN_NET_NAME = "./3step_bn56_disdrop_norandom/generator_param_113000.h5"
+VEC_NET_NAME = "./3step_bn56_disdrop_norandom/vectorizer_param_113000.h5"
+
+JYOYO_LIST = "./jyoyo_ichiran.txt"
+KANA_LIST = "./hiragana.txt"
+JYOYO_IMG_DIR = "./fontImg56"
+KANA_IMG_DIR = "./fontImgH56"
+
+def jyoyoList():
+    return open(JYOYO_LIST,'r').readlines()
+def kanaList():
+    return open(KANA_LIST,'r').readlines()
+
+def utf2unicode(utf):
+    if len(utf) == 6:
+        return utf[:4].decode("utf8")
+    if len(utf) == 5:
+        return utf[:3].decode("utf8")
+    return utf[:3].decode("utf8")
+
+jyoyo = jyoyoList()
+kana = kanaList()
+mojidict = {}
+for i,j in enumerate(jyoyo):
+    mojidict[utf2unicode(j)] = os.path.join(JYOYO_IMG_DIR,str(i).zfill(4)+".png")
+for i,j in enumerate(kana):
+    mojidict[utf2unicode(j)] = os.path.join(KANA_IMG_DIR,str(3000+i).zfill(4)+".png")
+
+def getCharImg(text):
+    if type(text) == str:
+        return mojidict[utf2unicode(text)]
+    if type(text) == unicode:
+        return mojidict[text]
+
+class BUGWORD:
+    def __init__(self,netLoad = True):
+        self.x = nn.Variable([1, 1, 56, 56])
+        self.z = vectorizer(self.x,test=True)
+        self.y = generator(self.z,test=True)
+        
+        self.z_ = self.z.unlinked()
+        self.y_ = generator(self.z_,test=True)
+        if netLoad:
+            self.setGen()
+            self.setVec()
+
+    def setGen(self,filename = GEN_NET_NAME):
+        with nn.parameter_scope("gen"):
+            nn.load_parameters(GEN_NET_NAME)
+
+    def setVec(self,filename = VEC_NET_NAME):
+        with nn.parameter_scope("vec"):
+            nn.load_parameters(VEC_NET_NAME)
+
+    def vectorize(self,img): #imgary= uint8 (56,56) or filename or pilimg
+        if type(img) == str:
+            return self.vectorize(Image.open(img))
+        elif type(img) == Image.Image or type(img) == PngImagePlugin.PngImageFile:
+            return self.vectorize(np.asarray(img))
+        else:
+            self.x.d = u82d(img)
+            self.z.forward()
+            return self.z.d.copy()
+
+    def generate(self,vecary,vivid = False,outImgFlag=False):
+        self.z_.d = vecary
+        self.y_.forward()
+        if outImgFlag:
+            return Image.fromarray(d2u8(self.y_.d[0][0],vivid))
+        else:
+            return d2u8(self.y_.d[0][0].copy(),vivid)
+
+    def mix(self,char1,char2,ratio=0.5,vivid = False,outImgFlag=False):
+        z1 = self.vectorize(getCharImg(char1))
+        z2 = self.vectorize(getCharImg(char2))
+        z3 = (1.0 - ratio) * z1 + ratio * z2
+        return self.generate(z3,vivid,outImgFlag)
+    
+    def morphTile(self,char1,char2,size=(32,32),tile=(8,8)):
+        out = []
+        for i in range(tile[0]*tile[1]):
+            out.append(self.mix(char1,char2,i/(tile[0]*tile[1]*1.0 - 1.0)))
+        return Image.fromarray(makeTile(out,size,tile))
+    def morphLoopTile(self,char1,char2,size=(32,32),tile=(8,8)):
+        out = []
+        for i in range(tile[0]*tile[1]/2):
+            out.append(self.mix(char1,char2,i/(tile[0]*tile[1]*0.5 - 1.0)))
+        return Image.fromarray(makeTile(out+out[::-1],size,tile))
+
+def makeVideo(arys,outDir):
+    if os.path.isdir(outDir):
+        return
+    os.system("mkdir "+outDir)
+    for i in range(len(arys)):
+        img = Image.fromarray(arys[i])
+        img.save(os.path.join(outDir,"img"+str(i).zfill(3)+".png"))
+    os.system("ffmpeg -r 30 -i " + os.path.join(outDir,"img")+"%"+"03d.png -vcodec libx264 -pix_fmt yuv420p -r 60 "+os.path.join(outDir,"out.mp4"))
+
+
+def makeTile(arys,size=(32,32),tile=(8,8)):
+    outW = size[0]*tile[0]
+    outH = size[1]*tile[1]
+    out = np.zeros((outH,outW),dtype="uint8")
+    for i in range(tile[1]):
+        for j in range(tile[0]):
+            if len(arys) > (i*tile[0]+j):
+                out[i * size[1]:(i+1) * size[1], j * size[0]:(j+1) * size[0]] = cv2.resize( arys[i*tile[0]+j],size)
+    return out
+
+
+def u82d(d):
+    return d / 255 * 2.0 - 1
+
+def d2u8(d, vivid = False):
+    if vivid:
+        return np.uint8((d > 0) * 255)
+    return np.uint8((d + 1) / 2.0 * 255)
+
+if __name__ == '__main__':
+    argvs=sys.argv
+    print argvs
+    main(argvs)
