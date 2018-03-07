@@ -40,7 +40,9 @@ import iterator
 
 BN56 = False
 BN56_DISDROP = False
-BN56_DISDROP_NORANDOM = True
+BN56_DISDROP_NORANDOM = False
+BN56_DISDROP_NORANDOM_DEEP = False
+BN56_DISDROP_NORANDOM_DEEP2 = True
 
 if BN56:
     from dcgan_kanji_3step_unlink_fin_bn56 import *
@@ -49,18 +51,42 @@ if BN56_DISDROP:
     from dcgan_kanji_3step_unlink_fin_bn56_disdrop import *
 if BN56_DISDROP_NORANDOM:
     from dcgan_kanji_3step_unlink_fin_bn56_disdrop_norandom import *
-
-
+if BN56_DISDROP_NORANDOM_DEEP:
+    from dcgan_kanji_3step_unlink_fin_bn56_disdrop_norandom_deep import *
+if BN56_DISDROP_NORANDOM_DEEP2:
+    from dcgan_kanji_3step_unlink_fin_bn56_disdrop_norandom_deep2 import *
 
 GEN_NET_NAME = "./3step_bn56_disdrop/generator_param_036000.h5"
 VEC_NET_NAME = "./3step_bn56_disdrop/vectorizer_param_036000.h5"
 GEN_NET_NAME = "./3step_bn56_disdrop_norandom/generator_param_113000.h5"
 VEC_NET_NAME = "./3step_bn56_disdrop_norandom/vectorizer_param_113000.h5"
+GEN_NET_NAME = "./3step_norandom_hiragana/generator_param_053000.h5"
+VEC_NET_NAME = "./3step_norandom_hiragana/vectorizer_param_053000.h5"
+
+GEN_NET_NAME = "./3step_norandom_hiragana/generator_param_158000.h5"
+VEC_NET_NAME = "./3step_norandom_hiragana/vectorizer_param_158000.h5"
+GEN_NET_NAME = "./3step_hiragana_norandom_deep/generator_param_201000.h5"
+VEC_NET_NAME = "./3step_hiragana_norandom_deep/vectorizer_param_201000.h5"
+GEN_NET_NAME = "./3step_hiragana_norandom_deep2/generator_param_016000.h5"
+VEC_NET_NAME = "./3step_hiragana_norandom_deep2/vectorizer_param_016000.h5"
+
 
 JYOYO_LIST = "./jyoyo_ichiran.txt"
 KANA_LIST = "./hiragana.txt"
 JYOYO_IMG_DIR = "./fontImg56"
 KANA_IMG_DIR = "./fontImgH56"
+
+
+def help():
+    import dcgan
+    c = dcgan.BUGWORD()
+    print "make morphing anime"
+    c.morphTile(u" ",u" ",size=(56,56),vivid=True).show()
+    
+    print "make morphing video"
+    out = c.morph(u" ",u" ",40)
+    dcgan.makeVideo((out+out[::-1])*4,"./out61")
+
 
 def jyoyoList():
     return open(JYOYO_LIST,'r').readlines()
@@ -91,11 +117,12 @@ def getCharImg(text):
 class BUGWORD:
     def __init__(self,netLoad = True):
         self.x = nn.Variable([1, 1, 56, 56])
-        self.z = vectorizer(self.x,test=True)
-        self.y = generator(self.z,test=True)
+        TEST_MODE = True
+        self.z = vectorizer(self.x,test=TEST_MODE)
+        self.y = generator(self.z,test=TEST_MODE)
         
         self.z_ = self.z.unlinked()
-        self.y_ = generator(self.z_,test=True)
+        self.y_ = generator(self.z_,test=TEST_MODE)
         if netLoad:
             self.setGen()
             self.setVec()
@@ -132,16 +159,23 @@ class BUGWORD:
         z3 = (1.0 - ratio) * z1 + ratio * z2
         return self.generate(z3,vivid,outImgFlag)
     
-    def morphTile(self,char1,char2,size=(32,32),tile=(8,8)):
-        out = []
-        for i in range(tile[0]*tile[1]):
-            out.append(self.mix(char1,char2,i/(tile[0]*tile[1]*1.0 - 1.0)))
+    def morphTile(self,char1,char2,size=(32,32),tile=(8,8),vivid = False):
+        #out = []
+        #for i in range(tile[0]*tile[1]):
+        #    out.append(self.mix(char1,char2,i/(tile[0]*tile[1]*1.0 - 1.0)))
+        out = self.morph(char1,char2,tile[0]*tile[1],vivid = vivid)
         return Image.fromarray(makeTile(out,size,tile))
-    def morphLoopTile(self,char1,char2,size=(32,32),tile=(8,8)):
-        out = []
-        for i in range(tile[0]*tile[1]/2):
-            out.append(self.mix(char1,char2,i/(tile[0]*tile[1]*0.5 - 1.0)))
+    def morphLoopTile(self,char1,char2,size=(32,32),tile=(8,8),vivid = False):
+        #out = []
+        #for i in range(tile[0]*tile[1]/2):
+        #    out.append(self.mix(char1,char2,i/(tile[0]*tile[1]*0.5 - 1.0)))
+        out = self.morph(char1,char2,tile[0]*tile[1]/2,vivid = vivid)
         return Image.fromarray(makeTile(out+out[::-1],size,tile))
+    def morph(self,char1,char2,step=100,vivid = False):
+        out = []
+        for i in range(step):
+            out.append(self.mix(char1,char2,i/(step - 1.0),vivid))
+        return out
 
 def makeVideo(arys,outDir):
     if os.path.isdir(outDir):

@@ -13,6 +13,7 @@ from PIL import ImageFont
 #generate_char_img(u'水',"font file path",(400,400)).show()
 #sample path
 sample_path="/Users/masarumizuochi/programming/of_v0.9.3/apps/Art2017/BaPABar/bin/data/Fonts/NotoSansCJKjp-Regular.otf"
+sample_path="/Users/masarumizuochi/programming/of_v0.9.8/apps/Art2017/BaPABar/bin/data/Fonts/NotoSansCJKjp-Regular.otf"
 
 def generate_char_img(char, fontname='Osaka', size=(64, 64)):
     img=Image.new('L', size, 'black')

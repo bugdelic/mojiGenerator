@@ -100,7 +100,7 @@ def main(argvs):
         if BN56_DISDROP:
             nn.load_parameters("./3step_bn56_disdrop/generator_param_036000.h5")
         if BN56_DISDROP_NORANDOM:
-            nn.load_parameters("./3step_bn56_disdrop_norandom/generator_param_113000.h5")
+            nn.load_parameters("./3step_norandom_hiragana/generator_param_053000.h5")
     with nn.parameter_scope("vec"):
         #nn.load_parameters("./tmp.monitor.dcgan.3step_unlink_fin_/vectorizer_param_004000.h5")
         #nn.load_parameters("./tmp.monitor.dcgan.3step_unlink_fin_/vectorizer_param_028000.h5")
@@ -109,7 +109,7 @@ def main(argvs):
         if BN56_DISDROP:
             nn.load_parameters("./3step_bn56_disdrop/vectorizer_param_036000.h5")
         if BN56_DISDROP_NORANDOM:
-            nn.load_parameters("./3step_bn56_disdrop_norandom/vectorizer_param_113000.h5")
+            nn.load_parameters("./3step_norandom_hiragana/vectorizer_param_053000.h5")
     data = load_kanji_data()
 
     x.d = u82d( data[0][testId1:testId1+1] )
