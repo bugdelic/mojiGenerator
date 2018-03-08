@@ -15,11 +15,13 @@
 from __future__ import absolute_import
 from six.moves import range
 
+import time
 import os
 import sys
 import glob
 import cv2
 from PIL import Image
+from PIL import ImageFilter
 from PIL import PngImagePlugin
 
 import numpy as np
@@ -69,6 +71,8 @@ GEN_NET_NAME = "./3step_hiragana_norandom_deep/generator_param_201000.h5"
 VEC_NET_NAME = "./3step_hiragana_norandom_deep/vectorizer_param_201000.h5"
 GEN_NET_NAME = "./3step_hiragana_norandom_deep2/generator_param_016000.h5"
 VEC_NET_NAME = "./3step_hiragana_norandom_deep2/vectorizer_param_016000.h5"
+GEN_NET_NAME = "./3step_hiragana_norandom_deep2/generator_param_110000.h5"
+VEC_NET_NAME = "./3step_hiragana_norandom_deep2/vectorizer_param_110000.h5"
 
 
 JYOYO_LIST = "./jyoyo_ichiran.txt"
@@ -176,6 +180,12 @@ class BUGWORD:
         for i in range(step):
             out.append(self.mix(char1,char2,i/(step - 1.0),vivid))
         return out
+    def morphChain(self,charList = ["","","","",""],step=100,vivid = False):
+        out = []
+        for j in range(len(charList)-1):
+            for i in range(step):
+                out.append(self.mix(charList[j],charList[j+1],i/(step - 1.0),vivid))
+        return out
 
 def makeVideo(arys,outDir):
     if os.path.isdir(outDir):
@@ -195,13 +205,88 @@ def makeTile(arys,size=(32,32),tile=(8,8)):
         for j in range(tile[0]):
             if len(arys) > (i*tile[0]+j):
                 out[i * size[1]:(i+1) * size[1], j * size[0]:(j+1) * size[0]] = cv2.resize( arys[i*tile[0]+j],size)
-    return out
+    return refine(out)
 
+neiborhood4 = np.array([[0, 1, 0],
+                            [1, 1, 1],
+                            [0, 1, 0]],
+                            np.uint8)
+
+neiborhood8 = np.array([[1, 1, 1],
+                            [1, 1, 1],
+                            [1, 1, 1]],
+                            np.uint8)
+
+limEdgeAry = np.ones((28,28))
+EDGE = 6
+for i in range(EDGE):
+    limEdgeAry[i,:] *= ((1.0 * (i/EDGE))**2)
+for i in range(EDGE):
+    limEdgeAry[:,i] *= ((1.0 * (i/EDGE))**2)
+limEdgeAry = np.hstack(( limEdgeAry,limEdgeAry[:,::-1]))
+limEdgeAry = np.vstack(( limEdgeAry,limEdgeAry[::-1,:]))
+
+def limEdge(imgary):
+    return imgary*limEdgeAry
+
+def refine(imgary):
+    return cv2.equalizeHist(imgary)
+
+def refine4(imgary):
+    img = Image.fromarray(imgary)
+    img.show();time.sleep(1)
+    img2 = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    img2.show();time.sleep(1)
+    imgary2 = np.asarray(img2)
+    imgary3 = cv2.equalizeHist(imgary2)
+    Image.fromarray(imgary3).show();time.sleep(1)
+    return imgary3
+
+def refine3(imgary):
+    Image.fromarray(imgary).show();time.sleep(1)
+    img = Image.fromarray(cv2.equalizeHist(imgary))
+    img.show();time.sleep(1)
+    img2 = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    img2.show();time.sleep(1)
+    imgary2 = np.asarray(img2)
+    return imgary2
+
+def refine2(imgary):
+    img = Image.fromarray(imgary)
+    img.show();time.sleep(1)
+    img2 = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    img2.show();time.sleep(1)
+    imgary2 = np.asarray(img2)
+
+    """
+        imgary3 = cv2.dilate(imgary2,
+                                neiborhood4,
+                                iterations=1)
+        Image.fromarray(imgary3).show();time.sleep(1)
+        imgary4 = cv2.erode(imgary3,
+                                neiborhood4,
+                                iterations=1)
+        Image.fromarray(imgary4).show();time.sleep(1)
+        imgary4 = cv2.erode(imgary4,
+                                neiborhood4,
+                                iterations=1)
+        Image.fromarray(imgary4).show();time.sleep(1)
+        imgary5 = cv2.dilate(imgary4,
+                                neiborhood4,
+                                iterations=1)
+        Image.fromarray(imgary5).show();time.sleep(1)
+    """
+    opening = cv2.morphologyEx(imgary2, cv2.MORPH_CLOSE, neiborhood4)
+    Image.fromarray(opening).show();time.sleep(1)
+    imgary5 = cv2.morphologyEx(opening, cv2.MORPH_OPEN, neiborhood4)
+    Image.fromarray(imgary5).show();time.sleep(1)
+    return imgary5
 
 def u82d(d):
     return d / 255 * 2.0 - 1
 
-def d2u8(d, vivid = False):
+def d2u8(d_, vivid = False):
+    d = limEdge(d_ + 1) - 1
     if vivid:
         return np.uint8((d > 0) * 255)
     return np.uint8((d + 1) / 2.0 * 255)
