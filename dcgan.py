@@ -73,6 +73,9 @@ GEN_NET_NAME = "./3step_hiragana_norandom_deep2/generator_param_016000.h5"
 VEC_NET_NAME = "./3step_hiragana_norandom_deep2/vectorizer_param_016000.h5"
 GEN_NET_NAME = "./3step_hiragana_norandom_deep2/generator_param_110000.h5"
 VEC_NET_NAME = "./3step_hiragana_norandom_deep2/vectorizer_param_110000.h5"
+GEN_NET_NAME = "./3step_hiragana_norandom_deep2/generator_param_227000.h5"
+VEC_NET_NAME = "./3step_hiragana_norandom_deep2/vectorizer_param_227000.h5"
+
 
 
 JYOYO_LIST = "./jyoyo_ichiran.txt"
@@ -103,6 +106,11 @@ def utf2unicode(utf):
     if len(utf) == 5:
         return utf[:3].decode("utf8")
     return utf[:3].decode("utf8")
+
+# utf16 to utf8
+# print eval("u'\u"+"3088'").encode("utf8") -> yo
+# "yo".decode("utf8")
+# ai -> u'\u611b'
 
 jyoyo = jyoyoList()
 kana = kanaList()
