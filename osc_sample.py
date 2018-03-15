@@ -1,7 +1,7 @@
 import time, threading
 import OSC
 
-server_address = ("172.16.65.34", 7000)
+server_address = ("172.16.65.62", 7000)
 server = OSC.OSCServer(server_address)
 server.addDefaultHandlers()
 

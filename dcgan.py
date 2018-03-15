@@ -104,7 +104,7 @@ def utf2unicode(utf):
     if len(utf) == 6:
         return utf[:4].decode("utf8")
     if len(utf) == 5:
-        return utf[:3].decode("utf8")
+        return utf[:4].decode("utf8")
     return utf[:3].decode("utf8")
 
 # utf16 to utf8
